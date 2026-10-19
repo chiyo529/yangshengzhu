@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f5ef">
+    <meta name="description" content="可离线使用的呼吸节拍器. 自定义吸气、呼气和总时长, 用两种柔和的无语音提示音跟随呼吸.">
+    <title>养生主 | 呼吸节拍器</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./core.js" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="page-header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40"><path d="M11 29C9 17 17 10 30 9c1 12-6 21-19 20Z"/><path d="m10 31 15-16"/></svg>
+          </span>
+          <div><h1>养生主</h1><p>呼吸节拍器</p></div>
+        </div>
+        <span class="local-badge"><span></span>离线可用 · 无语音</span>
+      </header>
+
+      <div class="introduction">
+        <p class="eyebrow">一段留给自己的时间</p>
+        <h2>跟随呼吸, 慢慢来.</h2>
+        <p>设好节奏, 让两种轻柔的声音陪你一呼一吸.</p>
+      </div>
+
+      <main class="workspace">
+        <section class="practice-card" aria-label="呼吸练习">
+          <div class="card-topline">
+            <span class="session-tag" id="session-state">准备开始</span>
+            <span class="cycle-summary" id="cycle-summary">3 秒吸气 / 5 秒呼气</span>
+          </div>
+
+          <div class="breathing-stage" id="breathing-stage" data-phase="ready">
+            <div class="orbit orbit-outer"></div>
+            <div class="orbit orbit-inner"></div>
+            <div class="breathing-orb" id="breathing-orb"></div>
+            <svg class="phase-ring" viewBox="0 0 300 300" aria-hidden="true">
+              <circle class="phase-ring-track" cx="150" cy="150" r="141"/>
+              <circle class="phase-ring-progress" id="phase-ring" cx="150" cy="150" r="141" pathLength="100"/>
+            </svg>
+            <div class="phase-content">
+              <span class="phase-caption" id="phase-caption">让呼吸自然发生</span>
+              <strong class="phase-name" id="phase-name" aria-live="polite">就绪</strong>
+              <span class="phase-count" id="phase-count" aria-hidden="true">随时开始</span>
+            </div>
+          </div>
+
+          <p class="practice-instruction" id="practice-instruction">吸气时圆环舒展, 呼气时缓缓收拢.</p>
+
+          <div class="transport">
+            <button class="button button-primary" id="start-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>
+              <span id="start-label">开始练习</span>
+            </button>
+            <button class="button button-secondary" id="reset-button" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg>
+              重置
+            </button>
+          </div>
+
+          <div class="session-information">
+            <div class="time-stat"><span>剩余时间</span><strong id="remaining-time" role="timer" aria-live="off">05:00</strong></div>
+            <div class="time-stat"><span>已完成</span><strong><span id="completed-cycles">0</span><small>轮呼吸</small></strong></div>
+            <div class="time-stat"><span>本次时长</span><strong id="total-time">05:00</strong></div>
+          </div>
+          <div class="session-progress" role="progressbar" id="session-progress" aria-label="练习进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="session-progress-fill"></div></div>
+        </section>
+
+        <aside class="settings-card" aria-label="练习设置">
+          <div class="settings-heading"><h3>设定你的节奏</h3><span>01 / 时间</span></div>
+          <form id="settings-form" novalidate>
+            <fieldset id="timing-fields">
+              <legend class="sr-only">呼吸与总时长</legend>
+              <div class="breath-inputs">
+                <label class="number-field" for="inhale-seconds"><span><i class="phase-dot inhale-dot"></i>吸气时长</span><div><input id="inhale-seconds" name="inhale" type="number" inputmode="decimal" min="1" max="60" step="0.5" value="3" required aria-describedby="timing-help"><span>秒</span></div></label>
+                <label class="number-field" for="exhale-seconds"><span><i class="phase-dot exhale-dot"></i>呼气时长</span><div><input id="exhale-seconds" name="exhale" type="number" inputmode="decimal" min="1" max="60" step="0.5" value="5" required aria-describedby="timing-help"><span>秒</span></div></label>
+              </div>
+              <p class="field-help" id="timing-help">每阶段 1 至 60 秒, 支持半秒调整.</p>
+              <div class="presets" aria-label="快捷节奏">
+                <button type="button" class="preset is-selected" data-inhale="3" data-exhale="5" aria-pressed="true">3 秒 / 5 秒</button>
+                <button type="button" class="preset" data-inhale="4" data-exhale="6" aria-pressed="false">4 秒 / 6 秒</button>
+                <button type="button" class="preset" data-inhale="4" data-exhale="4" aria-pressed="false">4 秒 / 4 秒</button>
+              </div>
+              <div class="duration-heading">练习总时长</div>
+              <div class="duration-inputs">
+                <label class="duration-field" for="total-minutes"><input id="total-minutes" type="number" inputmode="numeric" min="0" max="180" step="1" value="5" required aria-label="总时长的分钟数"><span>分钟</span></label>
+                <label class="duration-field" for="total-seconds"><input id="total-seconds" type="number" inputmode="numeric" min="0" max="59" step="1" value="0" required aria-label="总时长的秒数"><span>秒</span></label>
+              </div>
+              <p class="field-help">时间到即结束, 不会额外补齐一轮.</p>
+            </fieldset>
+
+            <div class="settings-divider"></div>
+            <div class="settings-heading sound-heading"><h3>听见一呼一吸</h3><span>02 / 声音</span></div>
+            <div class="volume-label"><label for="volume">提示音量</label><output id="volume-value" for="volume">35%</output></div>
+            <input id="volume" class="volume-slider" type="range" min="0" max="100" step="1" value="35" aria-label="提示音量">
+            <div class="sound-previews">
+              <button class="sound-preview" type="button" id="preview-inhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 9 4-4 4 4M13 5v12M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听吸气<small>高音清钟</small></span></button>
+              <button class="sound-preview" type="button" id="preview-exhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8 4 4 4-4M13 3v9M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听呼气<small>低音清钟</small></span></button>
+            </div>
+            <p class="sound-note">每次吸气和呼气开始时响起, 无语言提示.</p>
+            <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+          </form>
+        </aside>
+      </main>
+
+      <footer class="page-footer"><p>以轻松、舒适为准, 无需吸满或呼尽.</p><p>练习时保持设备唤醒. 锁屏可能中断声音.</p></footer>
+      <noscript><p class="noscript-message">请启用浏览器的 JavaScript 后使用呼吸计时器.</p></noscript>
+    </div>
+  </body>
+</html>
