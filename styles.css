@@ -76,7 +76,8 @@ h2 { font-family: "Songti SC", "STSong", serif; font-weight: 500; letter-spacing
 .session-progress > div { height: 100%; width: 0; background: #86a589; }
 .settings-card { padding: 28px; }
 .settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.settings-heading h3 { margin: 0; font-size: 15px; font-weight: 550; letter-spacing: .03em; }
+.settings-heading h3, .breath-sound-option { margin: 0; font-size: 15px; font-weight: 550; letter-spacing: .03em; }
+.breath-sound-option {display: flex; align-items: center; gap: 8px; margin: 12px 0; cursor: pointer; }
 .settings-heading > span { color: #9aa393; font-size: 9px; letter-spacing: .08em; }
 fieldset { border: 0; padding: 0; margin: 24px 0 0; min-width: 0; }
 .breath-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
