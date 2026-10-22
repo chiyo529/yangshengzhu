@@ -27,6 +27,7 @@
   let settings = null;
   let audio = null;
   let masterGain = null;
+  let breathGain = null;
   let cycleBuffer = null;
   let source = null;
   let finishSource = null;
@@ -107,6 +108,9 @@
       masterGain = audio.createGain();
       masterGain.gain.value = Number(ui.volume.value) / 100;
       masterGain.connect(audio.destination);
+      breathGain = audio.createGain();
+      breathGain.gain.value = byId("breath-sound").checked ? 1 : 0;
+      breathGain.connect(masterGain);
       audio.addEventListener("statechange", () => {
         if ((audio.state === "suspended" || audio.state === "interrupted" || audio.state === "closed") && status === "running") {
           pauseSession("声音播放被系统中断, 已暂停. 回到页面后点击继续.");
@@ -319,7 +323,7 @@
       source = audio.createBufferSource();
       source.buffer = cycleBuffer;
       source.loop = true;
-      source.connect(masterGain);
+      source.connect(breathGain);
       const activeSource = source;
       source.onended = () => { if (source === activeSource && status === "running") completeSession(); };
       const offset = elapsedBeforeStart % settings.cycle;
@@ -340,7 +344,7 @@
       if (resuming && phaseElapsed >= recording(frame.phase).length / sampleRate && remaining > 0.65) {
         const cue = audio.createBufferSource();
         cue.buffer = makeCueBuffer(frame.phase, Math.min(frame.phaseRemaining, remaining));
-        cue.connect(masterGain);
+        cue.connect(breathGain);
         previews.add(cue);
         cue.onended = () => { cue.disconnect(); previews.delete(cue); };
         cue.start(audioStartedAt);
@@ -447,6 +451,15 @@
   window.addEventListener("pagehide", () => {
     if (status === "running") pauseSession();
     stopPreviews();
+  });
+  byId("breath-sound").addEventListener("change", () => {
+    if (breathGain && audio) {
+      breathGain.gain.setTargetAtTime(
+        byId("breath-sound").checked ? 1 : 0,
+        audio.currentTime,
+        0.025
+      );
+    }
   });
   restoreSettings();
   updateVolume();
