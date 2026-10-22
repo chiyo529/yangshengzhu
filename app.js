@@ -20,7 +20,9 @@
   const storageKey = "yangshengzhu-breath-settings-v1";
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const sampleRate = 22050;
-  const cueDuration = 2.4;
+  const preparationSeconds = 3;
+  let preparing = false;
+  const recordings = new Map();
   let status = "idle";
   let settings = null;
   let audio = null;
@@ -115,40 +117,36 @@
     if (audio.state !== "running") throw new Error("提示音尚未启用, 请再次点击开始, 并检查浏览器声音权限.");
   }
 
-  // Short notes for the completion chime.
-  function addNote(data, offsetSeconds, frequency, strength = 0.3) {
+  function recording(phase) {
+    if (recordings.has(phase)) return recordings.get(phase);
+    const encoded = window.BreathingBellSounds && window.BreathingBellSounds[phase];
+    if (!encoded) throw new Error("铃声音频未加载, 请刷新页面后重试.");
+    const binary = atob(encoded);
+    const samples = new Float32Array(binary.length / 2);
+    for (let i = 0; i < samples.length; i += 1) {
+      const value = binary.charCodeAt(i * 2) | (binary.charCodeAt(i * 2 + 1) << 8);
+      samples[i] = (value >= 32768 ? value - 65536 : value) / 32768;
+    }
+    recordings.set(phase, samples);
+    return samples;
+  }
+
+  function addCue(data, offsetSeconds, phase, maxDuration = Infinity) {
+    const samples = recording(phase);
     const offset = Math.round(offsetSeconds * sampleRate);
-    const length = Math.round(0.4 * sampleRate);
-    for (let i = 0; i < length && offset + i < data.length; i += 1) {
-      const t = i / sampleRate;
-      const attack = Math.min(1, t / 0.008);
-      const release = Math.min(1, (length - i) / (sampleRate * 0.04));
-      const envelope = attack * Math.exp(-10 * t) * release;
-      const fundamental = Math.sin(2 * Math.PI * frequency * t);
-      const overtone = 0.16 * Math.sin(2 * Math.PI * frequency * 2 * t);
-      data[offset + i] += strength * envelope * (fundamental + overtone);
+    const length = Math.min(samples.length, Math.round(maxDuration * sampleRate), data.length - offset);
+    const fadeLength = Math.min(Math.round(0.08 * sampleRate), length);
+    for (let i = 0; i < length; i += 1) {
+      // Keep the original pitch and strike spacing. Only shorten the tail when
+      // the configured phase ends before the selected recording does.
+      const fade = length < samples.length ? Math.min(1, (length - 1 - i) / fadeLength) : 1;
+      data[offset + i] += samples[i] * fade;
     }
   }
 
-  function addCue(data, offsetSeconds, phase, duration = cueDuration) {
-    // One bright bell strike with a sustained fundamental and faster-decaying
-    // metallic partials. The two pitches distinguish inhale from exhale.
-    const frequency = phase === "inhale" ? 880 : 659.255;
-    const offset = Math.round(offsetSeconds * sampleRate);
-    const length = Math.round(duration * sampleRate);
-    for (let i = 0; i < length && offset + i < data.length; i += 1) {
-      const t = i / sampleRate;
-      const attack = Math.min(1, t / 0.003);
-      const release = Math.min(1, (length - 1 - i) / (sampleRate * 0.12));
-      const body = Math.sin(2 * Math.PI * frequency * t) * Math.exp(-3 * t);
-      const shimmer = 0.27 * Math.sin(2 * Math.PI * frequency * 2.756 * t) * Math.exp(-7 * t)
-        + 0.08 * Math.sin(2 * Math.PI * frequency * 5.404 * t) * Math.exp(-13 * t);
-      data[offset + i] += 0.38 * attack * release * (body + shimmer);
-    }
-  }
-
-  function makeCueBuffer(phase, duration = cueDuration) {
-    const buffer = audio.createBuffer(1, Math.round(sampleRate * duration), sampleRate);
+  function makeCueBuffer(phase, duration = Infinity) {
+    const length = Math.min(recording(phase).length, Math.round(sampleRate * duration));
+    const buffer = audio.createBuffer(1, length, sampleRate);
     addCue(buffer.getChannelData(0), 0, phase, duration);
     return buffer;
   }
@@ -156,18 +154,13 @@
   function makeCycleBuffer() {
     const buffer = audio.createBuffer(1, Math.round(sampleRate * settings.cycle), sampleRate);
     const data = buffer.getChannelData(0);
-    addCue(data, 0, "inhale", Math.min(cueDuration, settings.inhale));
-    addCue(data, settings.inhale, "exhale", Math.min(cueDuration, settings.exhale));
+    addCue(data, 0, "inhale", settings.inhale);
+    addCue(data, settings.inhale, "exhale", settings.exhale);
     return buffer;
   }
 
   function makeFinishBuffer() {
-    const buffer = audio.createBuffer(1, sampleRate, sampleRate);
-    const data = buffer.getChannelData(0);
-    addNote(data, 0, 392, 0.19);
-    addNote(data, 0.18, 523.251, 0.17);
-    addNote(data, 0.36, 659.255, 0.14);
-    return buffer;
+    return makeCueBuffer("finish");
   }
 
   function disposeNode(node) {
@@ -223,14 +216,35 @@
     ui.previewExhale.disabled = status === "running" || startPending;
     ui.reset.disabled = status === "idle" || startPending;
     ui.start.disabled = startPending;
-    ui.startLabel.textContent = status === "running" ? "暂停练习" : status === "paused" ? "继续练习" : status === "complete" ? "再练一次" : "开始练习";
+    ui.startLabel.textContent = status === "running" ? (preparing ? "取消准备" : "暂停练习") : status === "paused" ? "继续练习" : status === "complete" ? "再练一次" : "开始练习";
     ui.start.querySelector("svg").innerHTML = status === "running" ? '<path d="M8 5h3v14H8Zm7 0h3v14h-3Z"/>' : '<path d="m9 5 11 7-11 7Z"/>';
-    ui.state.textContent = status === "running" ? "正在练习" : status === "paused" ? "已暂停" : status === "complete" ? "本次已完成" : "准备开始";
+    ui.state.textContent = status === "running" ? (preparing ? "准备开始" : "正在练习") : status === "paused" ? "已暂停" : status === "complete" ? "本次已完成" : "准备开始";
   }
 
   function renderFrame() {
     if (!settings) return;
     cancelAnimationFrame(animationId);
+    if (status === "running" && preparing) {
+      const untilStart = audioStartedAt - audio.currentTime;
+      if (untilStart > 0) {
+        ui.stage.dataset.phase = "ready";
+        ui.caption.textContent = "调整姿势, 自然呼吸";
+        ui.phase.textContent = "准备";
+        ui.count.textContent = String(Math.min(preparationSeconds, Math.ceil(untilStart)));
+        ui.instruction.textContent = "倒计时结束后, 听到单次铃声开始吸气.";
+        ui.orb.style.transform = "scale(.78)";
+        ui.ring.style.strokeDashoffset = String(100 * Math.max(0, 1 - untilStart / preparationSeconds));
+        ui.remaining.textContent = formatTime(settings.total);
+        ui.total.textContent = formatTime(settings.total);
+        ui.cycles.textContent = "0";
+        ui.fill.style.width = "0%";
+        ui.progress.setAttribute("aria-valuenow", "0");
+        animationId = requestAnimationFrame(renderFrame);
+        return;
+      }
+      preparing = false;
+      setControls();
+    }
     const frame = frameAt(settings, currentElapsed());
     ui.remaining.textContent = formatTime(frame.remaining);
     ui.total.textContent = formatTime(settings.total);
@@ -260,13 +274,14 @@
     const phaseText = status === "paused" ? "暂停" : label;
     if (ui.phase.textContent !== phaseText) ui.phase.textContent = phaseText;
     ui.count.textContent = (status === "paused" ? label + "剩余 " : "剩余 ") + frame.phaseRemaining.toFixed(1) + " 秒";
-    ui.instruction.textContent = status === "paused" ? "点击继续后, 从当前阶段的剩余时间接着练习." : "吸气听高音钟声, 呼气听低音钟声.";
+    ui.instruction.textContent = status === "paused" ? "点击继续后, 从当前阶段的剩余时间接着练习." : "吸气听单次铃声, 呼气听双次铃声.";
     if (status === "running") animationId = requestAnimationFrame(renderFrame);
   }
 
   function completeSession() {
     if (status !== "running") return;
     status = "complete";
+    preparing = false;
     elapsedBeforeStart = settings.total;
     cancelAnimationFrame(animationId);
     if (source) { source.onended = null; source.disconnect(); source = null; }
@@ -299,7 +314,8 @@
 
       // The loop contains both phase cues. The audio engine, not page timers,
       // repeats it and stops it at the exact remaining session duration.
-      audioStartedAt = audio.currentTime + 0.035;
+      preparing = !resuming;
+      audioStartedAt = audio.currentTime + (preparing ? preparationSeconds : 0) + 0.035;
       source = audio.createBufferSource();
       source.buffer = cycleBuffer;
       source.loop = true;
@@ -321,9 +337,9 @@
       // already passed. The loop already supplies a cue near phase boundaries.
       const frame = frameAt(settings, elapsedBeforeStart);
       const phaseElapsed = (frame.phase === "inhale" ? settings.inhale : settings.exhale) - frame.phaseRemaining;
-      if (resuming && phaseElapsed >= cueDuration && remaining > 0.65) {
+      if (resuming && phaseElapsed >= recording(frame.phase).length / sampleRate && remaining > 0.65) {
         const cue = audio.createBufferSource();
-        cue.buffer = makeCueBuffer(frame.phase, Math.min(cueDuration, frame.phaseRemaining, remaining));
+        cue.buffer = makeCueBuffer(frame.phase, Math.min(frame.phaseRemaining, remaining));
         cue.connect(masterGain);
         previews.add(cue);
         cue.onended = () => { cue.disconnect(); previews.delete(cue); };
@@ -347,6 +363,12 @@
 
   function pauseSession(message = "已暂停. 可以自然呼吸, 无需保持当前吸气或呼气.") {
     if (status !== "running") return;
+    if (preparing && audio.currentTime < audioStartedAt) {
+      resetSession();
+      showFeedback(message.includes("中断") ? message : "已取消准备.");
+      return;
+    }
+    preparing = false;
     elapsedBeforeStart = currentElapsed();
     if (elapsedBeforeStart >= settings.total) { completeSession(); return; }
     status = "paused";
@@ -360,6 +382,7 @@
 
   function resetSession() {
     status = "idle";
+    preparing = false;
     stopSessionAudio();
     stopPreviews();
     releaseWakeLock();
@@ -393,7 +416,7 @@
       previews.add(node);
       node.onended = () => { node.disconnect(); previews.delete(node); };
       node.start();
-      showFeedback(Number(ui.volume.value) === 0 ? "当前音量为 0, 调高后即可试听." : phase === "inhale" ? "吸气提示: 清脆的高音钟声." : "呼气提示: 柔和的低音钟声.");
+      showFeedback(Number(ui.volume.value) === 0 ? "当前音量为 0, 调高后即可试听." : phase === "inhale" ? "吸气提示: 单次铃声." : "呼气提示: 双次铃声.");
     } catch (error) { showFeedback(error.message, true); }
   }
 

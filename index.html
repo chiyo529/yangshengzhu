@@ -8,7 +8,8 @@
     <title>养生主 | 呼吸节拍器</title>
     <link rel="stylesheet" href="./styles.css">
     <script src="./core.js" defer></script>
-    <script src="./app.js" defer></script>
+    <script src="./bell-sounds.js?v=20261022" defer></script>
+    <script src="./app.js?v=20261022" defer></script>
   </head>
   <body>
     <div class="page-shell">
@@ -99,10 +100,10 @@
             <div class="volume-label"><label for="volume">提示音量</label><output id="volume-value" for="volume">35%</output></div>
             <input id="volume" class="volume-slider" type="range" min="0" max="100" step="1" value="35" aria-label="提示音量">
             <div class="sound-previews">
-              <button class="sound-preview" type="button" id="preview-inhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 9 4-4 4 4M13 5v12M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听吸气<small>高音清钟</small></span></button>
-              <button class="sound-preview" type="button" id="preview-exhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8 4 4 4-4M13 3v9M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听呼气<small>低音清钟</small></span></button>
+              <button class="sound-preview" type="button" id="preview-inhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 9 4-4 4 4M13 5v12M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听吸气<small>单次铃声</small></span></button>
+              <button class="sound-preview" type="button" id="preview-exhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8 4 4 4-4M13 3v9M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听呼气<small>双次铃声</small></span></button>
             </div>
-            <p class="sound-note">每次吸气和呼气开始时响起, 无语言提示.</p>
+            <p class="sound-note">开始前准备 3 秒. 吸气一响, 呼气两响, 无语言提示.</p>
             <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
           </form>
         </aside>
