@@ -100,6 +100,10 @@
             <div class="settings-heading sound-heading"><h3>听见一呼一吸</h3><span>02 / 声音</span></div>
             <div class="volume-label"><label for="volume">提示音量</label><output id="volume-value" for="volume">35%</output></div>
             <input id="volume" class="volume-slider" type="range" min="0" max="100" step="1" value="35" aria-label="提示音量">
+            <label class="breath-sound-option">
+                <input id="breath-sound" type="checkbox" checked>
+                播放吸气和呼气提示音
+            </label>
             <div class="sound-previews">
               <button class="sound-preview" type="button" id="preview-inhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 9 4-4 4 4M13 5v12M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听吸气<small>单次铃声</small></span></button>
               <button class="sound-preview" type="button" id="preview-exhale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8 4 4 4-4M13 3v9M5 15v5m4-7v7m8-7v7m4-5v5"/></svg><span>试听呼气<small>双次铃声</small></span></button>
